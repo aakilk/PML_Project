@@ -1,0 +1,156 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Aakil Kadali"
+output: html_document
+---
+
+### Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+
+### Data 
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+```{r, echo = FALSE}
+# Set Working Directory
+setwd("C:/Users/draco/OneDrive/Documents/Practical Machine Learning/Project")
+```
+
+
+```{r, message = FALSE}
+# Load Libraries
+
+library(ggplot2)
+library(caret)
+library(randomForest)
+
+```
+
+```{r}
+# Download files
+
+train_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+train_name <- "pml-training.csv"
+test_name <- "pml-testing.csv"
+
+if (!file.exists(train_name)){
+  download.file(train_url,train_name)
+}
+
+if (!file.exists(test_name)){
+  download.file(test_url,test_name)
+}
+
+```
+
+### Exploratory Analsysis
+
+```{r}
+# Load Data
+
+train <- read.csv(train_name,header=TRUE, na.strings=c("NA","#DIV/0",""))
+test <- read.csv(test_name,header=TRUE, na.strings=c("NA","#DIV/0",""))
+
+```
+
+
+We will need to remove columns with missing values in order to conduct our machine learning algorithms. We can also
+remove columns that are irelevant to the analysis such as user name, time stamps and window.
+
+```{r}
+# Remove NA values
+train <- train[,colSums(is.na(train)) == 0]
+test <- test[,colSums(is.na(test)) == 0]
+
+# Remove Unnecessary Columns
+train <- train[,-c(1:7)]
+test <- test[,-c(1:7)]
+
+```
+
+We can take a look at the dimensions of the transformed train data now.
+
+```{r}
+dim(train)
+```
+
+We can also examine the different classes of barbell exercises and erroneous exercises distributed in the training data set. 
+The five classifications of dumbell exercises are:
+
+*  Class A: Exactly according to the specification.
+*  Class B: Throwing the elbows to the front
+*  Class C: Lifting the dumbell only halfway
+*  Class D: Lowering the dumbell only halfway
+*  Class E: Throwing the hips to the front
+
+
+```{r}
+  qplot(x = classe, data = train, xlab = "Classe", ylab = "Frequency")
+```
+
+
+
+### Partitioning
+Here, we partition the training data into a training and validation set so that we can test the model.
+
+```{r}
+  # Set seed
+  set.seed(8665)
+  training_set_flag <- createDataPartition(train$classe,p=.7,list = FALSE)
+  
+  Training_Set <- train[training_set_flag,]
+  Validation_Set <- train[-training_set_flag,]
+
+```
+
+We can take a look at the dimensions of the training set now.
+
+```{r}
+  dim(Training_Set)
+```
+
+
+### Random Forest Modeling
+
+We can use the random forest machine learning algorithm as it is easily implementatble and accurate for larger datasets.
+
+```{r}
+  set.seed(8665)
+  
+  rf_model <- randomForest(classe~.,data=Training_Set,importance = TRUE, ntrees = 12)
+  print(rf_model)
+  plot(rf_model)
+```
+
+As it can be seen from the plot and the random forest data, the error is minimal with class D having the highest
+error rate at 1.1%.
+
+We can now cross-validate using the testing data.
+
+```{r}
+  validation_test <- predict(rf_model,Validation_Set,type = "class")
+  confusionMatrix(Validation_Set$classe,validation_test)
+```
+
+Here, we see that the accuracy of the test is 99.39% 
+
+### Prediction
+
+Now we can use the prediction set using the test data set.
+
+```{r}
+  predictTest <- predict(rf_model,newdata=test)
+  predictTest
